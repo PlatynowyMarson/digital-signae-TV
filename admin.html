@@ -1,0 +1,431 @@
+<!doctype html>
+<html lang="pl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#071f18">
+  <link rel="manifest" href="manifest.webmanifest">
+  <title>ANS Studio - Edytor Digital Signage</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; font: 16px/1.45 Arial, sans-serif; color: #162238; background: #f2f6f4; }
+    header { background: #071f18; color: white; padding: 24px max(24px, calc((100vw - 1200px) / 2)); }
+    header h1 { margin: 0; font-size: 28px; }
+    header p { margin: 4px 0 0; color: #c9d9d2; }
+    main { max-width: 1200px; margin: 28px auto; padding: 0 20px 50px; }
+    .card { background: white; border: 1px solid #dce6e2; border-radius: 18px; padding: 24px; margin-bottom: 22px; box-shadow: 0 8px 24px #0b302010; }
+    .row { display: flex; flex-wrap: wrap; gap: 14px; align-items: end; }
+    .grow { flex: 1 1 180px; }
+    label { display: block; font-weight: 700; font-size: 14px; color: #455569; }
+    input, textarea { display: block; width: 100%; margin-top: 6px; padding: 11px 12px; border: 1px solid #cddbd5; border-radius: 10px; font: inherit; color: #162238; background: #fff; }
+    textarea { min-height: 78px; resize: vertical; }
+    input[type="checkbox"] { display: inline-block; width: auto; margin: 0 8px 0 0; }
+    input[type="file"] { padding: 8px; }
+    button, .button { border: 0; border-radius: 10px; background: #0a503a; color: white; padding: 11px 17px; font: 700 15px Arial, sans-serif; cursor: pointer; }
+    button:hover { background: #087052; }
+    button:disabled { opacity: .45; cursor: default; }
+    .secondary { color: #0a503a; background: #e7f3ed; }
+    .secondary:hover { background: #d3eadf; }
+    .danger { color: #b32124; background: #fff0ef; }
+    .danger:hover { background: #ffdfdd; }
+    .section-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 15px; }
+    h2 { margin: 0; font-size: 24px; }
+    h3 { margin: 0 0 10px; font-size: 17px; }
+    .item { padding: 18px; margin: 14px 0; border: 1px solid #e0e8e5; border-radius: 14px; background: #fafcfb; }
+    .item .row + .row { margin-top: 12px; }
+    .item-actions { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-top: 14px; }
+    .muted { color: #697a88; }
+    .note { background: #fff8e4; border: 1px solid #f0d98a; border-radius: 12px; padding: 14px; color: #694b11; }
+    .status { margin-top: 16px; padding: 12px 14px; border-radius: 10px; background: #e5f5ed; color: #0b5038; }
+    .status.error { background: #fff0ef; color: #a42327; }
+    .meter { font-weight: 700; color: #0a503a; }
+    a { color: #0a6548; }
+    @media(max-width: 700px) { header { padding: 20px; } .card { padding: 16px; } }
+  </style>
+</head>
+<body>
+  <header><h1>ANS Studio</h1><p>Osobny edytor treści ekranów Digital Signage</p></header>
+  <main>
+    <section class="card">
+      <div class="section-head"><h2>Połączenie z GitHubem</h2><a href="index.html" target="_blank" rel="noopener">Otwórz ekran TV</a></div>
+      <p class="muted">Repozytorium GitHub Pages musi zawierać plik <code>index.html</code> z tej paczki. Token jest używany tylko w tej karcie i nie trafia do pamięci przeglądarki.</p>
+      <div class="row">
+        <label class="grow">Użytkownik / organizacja<input id="owner" autocomplete="off" placeholder="platynowymarson"></label>
+        <label class="grow">Repozytorium<input id="repo" autocomplete="off" placeholder="digital-signage"></label>
+        <label class="grow">Gałąź<input id="branch" value="main" autocomplete="off"></label>
+      </div>
+      <div class="row" style="margin-top:14px">
+        <label class="grow">Token fine-grained (Contents: Read and write)<input id="token" type="password" autocomplete="off" placeholder="github_pat_..."></label>
+        <button id="load" type="button">Wczytaj z GitHuba</button>
+        <button id="publish" type="button" disabled>Opublikuj zmiany</button>
+      </div>
+      <p class="note">Wydawaj token tylko dla jednego repozytorium. Nie zapisuj go w HTML, na GitHubie ani na telewizorze. Publikowane dane i panel będą publicznie widoczne, ale bez tokenu nikt nie może zapisać zmian.</p>
+      <div id="status" class="status">Najpierw wgraj stronę na GitHub Pages, potem połącz edytor z repozytorium.</div>
+    </section>
+
+    <section class="card">
+      <div class="section-head"><h2>Szacunek transferu</h2></div>
+      <div class="row">
+        <label>Telewizory<input id="tv-count" type="number" min="1" max="100" value="3"></label>
+        <label>Pełne pobrania na dobę / TV<input id="loads-per-day" type="number" min="1" max="100" value="1"></label>
+      </div>
+      <p id="transfer-estimate" class="meter"></p>
+      <p class="muted">To szacunek na podstawie plików znanych edytorowi, nie łączna telemetria Samsungów. Transfer konkretnego TV pokaże ekran z dopiskiem <code>?stats=1</code>, o ile jego przeglądarka obsługuje pomiar.</p>
+    </section>
+
+    <div id="sections"></div>
+    <section class="card">
+      <div class="section-head"><h2>Ustawienia ekranów</h2></div>
+      <label>Tekst stopki<input id="footer"></label>
+      <div id="screen-settings" class="row" style="margin-top:18px"></div>
+    </section>
+  </main>
+  <script>
+    window.ANS_BOOTSTRAP = { data: {
+  "announcements": [
+    {
+      "id": "announcement-1",
+      "title": "Dzień dobry na Wydziale Nauk Ekonomicznych",
+      "body": "Życzymy studentom spokojnej sesji, trafnych decyzji i powodzenia podczas egzaminów oraz obron prac dyplomowych.",
+      "category": "Informacja",
+      "accent": "emerald",
+      "active": true
+    },
+    {
+      "id": "announcement-2",
+      "title": "Marcin Plata test  drugi",
+      "body": "Dodatkowe konsultacje dla dyplomantów odbędą się w środę w godz. 12:00–15:00 w sali 2.14.",
+      "category": "Dla studentów",
+      "accent": "gold",
+      "active": true
+    },
+    {
+      "id": "announcement-3",
+      "title": "Forum Młodego Ekonomisty",
+      "body": "Zapraszamy na spotkanie z przedstawicielami lokalnego biznesu. Aula główna, piątek, godz. 10:00.",
+      "category": "Wydarzenie",
+      "accent": "blue",
+      "active": true
+    }
+  ],
+  "events": [
+    {
+      "id": "event-1",
+      "title": "Dzień otwarty ANS",
+      "description": "Prezentacja kierunków studiów, laboratoriów i organizacji studenckich.",
+      "location": "Kampus ANS",
+      "date": "2026-06-18",
+      "time": "10:00",
+      "category": "Uczelnia"
+    },
+    {
+      "id": "event-2",
+      "title": "Forum Młodego Ekonomisty",
+      "description": "Spotkanie studentów z przedstawicielami lokalnego biznesu.",
+      "location": "Aula główna",
+      "date": "2026-06-20",
+      "time": "11:00",
+      "category": "Nauka"
+    },
+    {
+      "id": "event-3",
+      "title": "Akademicki piknik integracyjny",
+      "description": "Muzyka, strefa sportowa i spotkanie społeczności akademickiej.",
+      "location": "Teren przy kampusie",
+      "date": "2026-06-25",
+      "time": "15:00",
+      "category": "Kultura"
+    }
+  ],
+  "mediaSlides": [
+    {
+      "id": "media-1",
+      "title": "Nowoczesny kampus ANS",
+      "description": "Przestrzeń do nauki, współpracy i rozwoju w samym sercu Nowego Sącza.",
+      "imageUrl": "ans-building.png",
+      "active": true
+    }
+  ],
+  "defenses": [],
+  "settings": {
+    "footerText": "Akademia Nauk Stosowanych w Nowym Sączu · Wydział Nauk Ekonomicznych",
+    "ansLogoUrl": "ans-mark.svg",
+    "facultyLogoUrl": "wne-mark.svg",
+    "theme": "dark",
+    "modernScreens": {
+      "information": true,
+      "events": true,
+      "news": true,
+      "defenses": false
+    },
+    "legacyScreens": {
+      "information": true,
+      "events": true,
+      "news": true,
+      "defenses": false
+    }
+  }
+}, news: {
+  "featured": [
+    {
+      "title": "Gala Absolwentów i Przyjaciół Wydziału Nauk Ekonomicznych 2026",
+      "date": "06.07.2026",
+      "url": "https://www.ans-ns.edu.pl/we/wydzial/o-wydziale/aktualnosci/8242-gala-absolwentow-i-przyjaciol-wydzialu-nauk-ekonomicznych-2026",
+      "imageUrl": "wne-news-images/0f2826f85e4e4bb9.png?v=1784017204431"
+    },
+    {
+      "title": "Warsztaty Spin Camp Małopolska w Akademii Nauk Stosowanych w Nowym Sączu",
+      "date": "24.06.2026",
+      "url": "https://www.ans-ns.edu.pl/we/wydzial/o-wydziale/aktualnosci/8227-warsztaty-spin-camp-malopolska-w-akademii-nauk-stosowanych-w-nowym-saczu-2",
+      "imageUrl": "wne-news-images/0b76a7e13634e3bc.jpg?v=1784017204455"
+    },
+    {
+      "title": "Nowy Sącz i inne samorządy Subregionu Sądeckiego pod lupą pracowników Wydziału Nauk Ekonomicznych",
+      "date": "16.06.2026",
+      "url": "https://www.ans-ns.edu.pl/we/wydzial/o-wydziale/aktualnosci/8216-nowy-sacz-i-inne-samorzady-subregionu-sadeckiego-pod-lupa-pracownikow-wydzialu-nauk-ekonomicznych-2",
+      "imageUrl": "wne-news-images/d470c210412c94fe.jpg?v=1784017204455"
+    }
+  ],
+  "links": [
+    {
+      "date": "15.06.2026",
+      "title": "SPIN CAMP - zapraszamy przedsiębiorców i naukowców na warsztaty dot. innowacji i współpracy biznesu z nauką",
+      "url": "https://www.ans-ns.edu.pl/we/wydzial/o-wydziale/aktualnosci/8208-spin-camp-zapraszamy-przedsiebiorcow-i-naukowcow-na-warsztaty-dot-innowacji-i-wspolpracy-z-nauka-2"
+    },
+    {
+      "date": "10.06.2026",
+      "title": "Wykład otwarty o przyszłości doradztwa podatkowego na Wydziale Nauk Ekonomicznych ANS w Nowym Sączu",
+      "url": "https://www.ans-ns.edu.pl/we/wydzial/o-wydziale/aktualnosci/8199-wyklad-otwarty-o-przyszlosci-doradztwa-podatkowego-na-wydziale-nauk-ekonomicznych-ans-w-nowym-saczu"
+    },
+    {
+      "date": "27.05.2026",
+      "title": "Bal Absolwentów z okazji Jubileuszu 20-lecia Akademickiego Biura Karier",
+      "url": "https://www.ans-ns.edu.pl/we/wydzial/o-wydziale/aktualnosci/7964-jubileusz-20-lecia-abk"
+    },
+    {
+      "date": "26.05.2026",
+      "title": "Nauka, doświadczenie i współpraca – podsumowanie I Studenckiego Sympozjum WNE w Rytrze",
+      "url": "https://www.ans-ns.edu.pl/we/wydzial/o-wydziale/aktualnosci/8158-nauka-doswiadczenie-i-wspolpraca-podsumowanie-i-studenckiego-sympozjum-wne-w-rytrze"
+    }
+  ],
+  "sourceUrl": "https://www.ans-ns.edu.pl/we",
+  "fetchedAt": "2026-07-14T08:20:04.347Z"
+}, assetBytes: 4749410 };
+    (function () {
+      'use strict';
+      var bootstrap = window.ANS_BOOTSTRAP;
+      var data = JSON.parse(JSON.stringify(bootstrap.data));
+      var news = JSON.parse(JSON.stringify(bootstrap.news));
+      var loadedSha = '';
+      var loadedRepository = '';
+      var busy = false;
+      var specs = [
+        { key: 'announcements', title: 'Komunikaty', fields: [['title', 'Tytuł'], ['body', 'Treść', 'textarea'], ['category', 'Kategoria']] },
+        { key: 'mediaSlides', title: 'Zdjęcia i materiały', fields: [['title', 'Tytuł'], ['description', 'Opis', 'textarea'], ['imageUrl', 'Adres zdjęcia']] },
+        { key: 'events', title: 'Wydarzenia', fields: [['title', 'Nazwa'], ['description', 'Opis', 'textarea'], ['location', 'Miejsce'], ['date', 'Data', 'date'], ['time', 'Godzina', 'time'], ['category', 'Kategoria']] },
+        { key: 'defenses', title: 'Obrony', fields: [['date', 'Data', 'date'], ['time', 'Godzina', 'time'], ['studentName', 'Student'], ['program', 'Kierunek'], ['room', 'Sala'], ['supervisor', 'Promotor']] },
+        { key: 'featured', title: 'Aktualności WNE', fields: [['title', 'Tytuł'], ['date', 'Data'], ['imageUrl', 'Adres zdjęcia']] },
+      ];
+
+      function byId(id) { return document.getElementById(id); }
+      function status(message, error) { byId('status').textContent = message; byId('status').className = error ? 'status error' : 'status'; }
+      function repository() {
+        var owner = byId('owner').value.trim();
+        var repo = byId('repo').value.trim();
+        var branch = byId('branch').value.trim() || 'main';
+        if (!/^[A-Za-z0-9-]+$/.test(owner) || !/^[A-Za-z0-9._-]+$/.test(repo) || !/^[A-Za-z0-9._\/-]+$/.test(branch)) throw new Error('Podaj poprawnego użytkownika, repozytorium i gałąź.');
+        return { owner: owner, repo: repo, branch: branch, key: owner + '/' + repo + '@' + branch };
+      }
+      function apiPath(repo, file) { return 'https://api.github.com/repos/' + encodeURIComponent(repo.owner) + '/' + encodeURIComponent(repo.repo) + '/contents/' + file; }
+      async function api(url, options) {
+        var token = byId('token').value.trim();
+        if (!token) throw new Error('Podaj token GitHub z dostępem do tego repozytorium.');
+        var response = await fetch(url, Object.assign({ headers: { Accept: 'application/vnd.github+json', Authorization: 'Bearer ' + token } }, options || {}));
+        var result = await response.json().catch(function () { return {}; });
+        if (!response.ok) throw new Error('GitHub ' + response.status + ': ' + (result.message || 'Nie udało się wykonać operacji.'));
+        return result;
+      }
+      function decodeBase64(value) {
+        var bytes = Uint8Array.from(atob(value.replace(/\s/g, '')), function (character) { return character.charCodeAt(0); });
+        return new TextDecoder().decode(bytes);
+      }
+      function encodeBase64(value) {
+        var bytes = new TextEncoder().encode(value);
+        var binary = '';
+        for (var i = 0; i < bytes.length; i += 1) binary += String.fromCharCode(bytes[i]);
+        return btoa(binary);
+      }
+      function jsonLiteral(value) { return JSON.stringify(value, null, 2).replace(/</g, '\\u003c'); }
+      function embeddedData(html) {
+        var start = 'window.ANS_STATIC_DATA = ';
+        var between = ';\nwindow.ANS_STATIC_NEWS = ';
+        var end = ';\n<\/script>';
+        var first = html.indexOf(start);
+        var middle = html.indexOf(between, first);
+        var last = html.indexOf(end, middle);
+        if (first < 0 || middle < 0 || last < 0) throw new Error('W repozytorium nie ma zgodnego pliku index.html z danymi ANS.');
+        return { data: JSON.parse(html.slice(first + start.length, middle)), news: JSON.parse(html.slice(middle + between.length, last)), first: first, last: last + end.length };
+      }
+      function updatedHtml(html) {
+        var found = embeddedData(html);
+        var block = 'window.ANS_STATIC_DATA = ' + jsonLiteral(data) + ';\nwindow.ANS_STATIC_NEWS = ' + jsonLiteral(news) + ';\n<\/script>';
+        return html.slice(0, found.first) + block + html.slice(found.last);
+      }
+      function setBusy(value) { busy = value; byId('load').disabled = value; byId('publish').disabled = value || !loadedSha; }
+
+      async function load() {
+        if (busy) return;
+        setBusy(true);
+        try {
+          var repo = repository();
+          var file = await api(apiPath(repo, 'index.html') + '?ref=' + encodeURIComponent(repo.branch));
+          var embedded = embeddedData(decodeBase64(file.content));
+          data = embedded.data;
+          news = embedded.news;
+          loadedSha = file.sha;
+          loadedRepository = repo.key;
+          byId('footer').value = data.settings.footerText || '';
+          render();
+          status('Wczytano aktualne dane. Możesz je edytować i opublikować.');
+        } catch (error) { status(error.message, true); }
+        finally { setBusy(false); }
+      }
+      async function publish() {
+        if (busy) return;
+        setBusy(true);
+        try {
+          var repo = repository();
+          if (repo.key !== loadedRepository) throw new Error('Zmieniło się repozytorium lub gałąź. Najpierw ponownie wczytaj dane.');
+          validate();
+          var file = await api(apiPath(repo, 'index.html') + '?ref=' + encodeURIComponent(repo.branch));
+          if (file.sha !== loadedSha) throw new Error('Ktoś zmienił stronę od ostatniego wczytania. Wczytaj ją ponownie przed publikacją.');
+          var html = updatedHtml(decodeBase64(file.content));
+          var result = await api(apiPath(repo, 'index.html'), {
+            method: 'PUT', headers: { Accept: 'application/vnd.github+json', Authorization: 'Bearer ' + byId('token').value.trim(), 'Content-Type': 'application/json' },
+            body: JSON.stringify({ message: 'Aktualizacja treści ANS Digital Signage', content: encodeBase64(html), sha: loadedSha, branch: repo.branch }),
+          });
+          loadedSha = result.content.sha;
+          status('Opublikowano na GitHubie. Po wdrożeniu Pages odśwież stronę na telewizorach.');
+        } catch (error) { status(error.message, true); }
+        finally { setBusy(false); }
+      }
+      function validate() {
+        for (var i = 0; i < data.defenses.length; i += 1) {
+          var item = data.defenses[i];
+          if (!item.date || !item.time || !item.studentName || !item.program || !item.room || !item.supervisor) throw new Error('Obrona nr ' + (i + 1) + ' ma puste wymagane pole.');
+        }
+      }
+      function field(item, description) {
+        var wrapper = document.createElement('label'); wrapper.className = 'grow'; wrapper.textContent = description[1];
+        var input = document.createElement(description[2] === 'textarea' ? 'textarea' : 'input');
+        if (input.tagName === 'INPUT') input.type = description[2] || 'text';
+        input.value = item[description[0]] || '';
+        input.addEventListener('input', function () { item[description[0]] = input.value; });
+        wrapper.appendChild(input);
+        return wrapper;
+      }
+      function render() {
+        var target = byId('sections'); target.replaceChildren();
+        specs.forEach(function (spec) {
+          var collection = spec.key === 'featured' ? news.featured : data[spec.key];
+          if (!Array.isArray(collection)) collection = spec.key === 'featured' ? (news.featured = []) : (data[spec.key] = []);
+          var section = document.createElement('section'); section.className = 'card';
+          var head = document.createElement('div'); head.className = 'section-head';
+          var title = document.createElement('h2'); title.textContent = spec.title;
+          var add = document.createElement('button'); add.type = 'button'; add.textContent = '+ Dodaj';
+          add.addEventListener('click', function () {
+            var item = { id: spec.key + '-' + Date.now() + '-' + Math.random().toString(36).slice(2, 7) };
+            if (spec.key === 'announcements' || spec.key === 'mediaSlides') item.active = true;
+            collection.push(item); render();
+          });
+          head.append(title, add); section.appendChild(head);
+          collection.forEach(function (item, index) {
+            var card = document.createElement('div'); card.className = 'item';
+            var row = document.createElement('div'); row.className = 'row';
+            spec.fields.forEach(function (description) { row.appendChild(field(item, description)); });
+            card.appendChild(row);
+            var actions = document.createElement('div'); actions.className = 'item-actions';
+            if ('active' in item) {
+              var active = document.createElement('label');
+              var toggle = document.createElement('input'); toggle.type = 'checkbox'; toggle.checked = item.active !== false;
+              toggle.addEventListener('change', function () { item.active = toggle.checked; });
+              active.append(toggle, document.createTextNode('Aktywny')); actions.appendChild(active);
+            } else actions.appendChild(document.createElement('span'));
+            var remove = document.createElement('button'); remove.type = 'button'; remove.className = 'danger'; remove.textContent = 'Usuń';
+            remove.addEventListener('click', function () { if (confirm('Usunąć pozycję?')) { collection.splice(index, 1); render(); } });
+            actions.appendChild(remove); card.appendChild(actions);
+            if (spec.key === 'mediaSlides' || spec.key === 'featured') {
+              var upload = document.createElement('input'); upload.type = 'file'; upload.accept = 'image/png,image/jpeg,image/webp';
+              upload.setAttribute('aria-label', 'Wgraj zdjęcie do GitHuba');
+              upload.addEventListener('change', function () { if (upload.files[0]) void uploadImage(upload.files[0], item); });
+              card.appendChild(upload);
+            }
+            section.appendChild(card);
+          });
+          target.appendChild(section);
+        });
+        renderSettings();
+      }
+      async function uploadImage(file, item) {
+        if (busy) return;
+        setBusy(true);
+        try {
+          var repo = repository();
+          if (repo.key !== loadedRepository) throw new Error('Najpierw wczytaj repozytorium GitHub.');
+          if (file.size > 5 * 1024 * 1024) throw new Error('Zdjęcie może mieć maksymalnie 5 MB.');
+          var extension = ({ 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp' })[file.type];
+          if (!extension) throw new Error('Dozwolone są JPG, PNG i WebP.');
+          var buffer = new Uint8Array(await file.arrayBuffer());
+          var binary = ''; for (var i = 0; i < buffer.length; i += 1) binary += String.fromCharCode(buffer[i]);
+          var filename = 'media/ans-' + Date.now() + '-' + Math.random().toString(36).slice(2, 7) + '.' + extension;
+          await api(apiPath(repo, filename), {
+            method: 'PUT', headers: { Accept: 'application/vnd.github+json', Authorization: 'Bearer ' + byId('token').value.trim(), 'Content-Type': 'application/json' },
+            body: JSON.stringify({ message: 'Dodano zdjęcie ANS Digital Signage', content: btoa(binary), branch: repo.branch }),
+          });
+          item.imageUrl = filename;
+          bootstrap.assetBytes += file.size;
+          render(); updateEstimate();
+          status('Zdjęcie dodane do repozytorium. Kliknij Opublikuj zmiany, aby pojawiło się na ekranie.');
+        } catch (error) { status(error.message, true); }
+        finally { setBusy(false); }
+      }
+      function renderSettings() {
+        var target = byId('screen-settings'); target.replaceChildren();
+        [['information', 'Komunikaty'], ['events', 'Wydarzenia'], ['news', 'Aktualności'], ['defenses', 'Obrony']].forEach(function (entry) {
+          var label = document.createElement('label');
+          var input = document.createElement('input'); input.type = 'checkbox'; input.checked = data.settings.legacyScreens[entry[0]] !== false;
+          input.addEventListener('change', function () { data.settings.legacyScreens[entry[0]] = input.checked; });
+          label.append(input, document.createTextNode(entry[1])); target.appendChild(label);
+        });
+      }
+      function updateEstimate() {
+        var tvs = Math.max(1, Number(byId('tv-count').value) || 1);
+        var loads = Math.max(1, Number(byId('loads-per-day').value) || 1);
+        var htmlBytes = new TextEncoder().encode(JSON.stringify(data) + JSON.stringify(news)).length + 43000;
+        var perLoad = bootstrap.assetBytes + htmlBytes;
+        var month = perLoad * tvs * loads * 30;
+        byId('transfer-estimate').textContent = 'Około ' + (perLoad / 1048576).toFixed(2) + ' MB na pełne pobranie strony; ' + (month / 1073741824).toFixed(2) + ' GB / 30 dni dla ' + tvs + ' TV.';
+      }
+      try {
+        var settings = JSON.parse(localStorage.getItem('ans-studio-repo-v1') || '{}');
+        byId('owner').value = settings.owner || '';
+        byId('repo').value = settings.repo || '';
+        byId('branch').value = settings.branch || 'main';
+      } catch (ignore) {}
+      ['owner', 'repo', 'branch'].forEach(function (id) {
+        byId(id).addEventListener('change', function () {
+          localStorage.setItem('ans-studio-repo-v1', JSON.stringify({ owner: byId('owner').value, repo: byId('repo').value, branch: byId('branch').value }));
+          loadedSha = ''; loadedRepository = ''; byId('publish').disabled = true;
+        });
+      });
+      byId('footer').value = data.settings.footerText || '';
+      byId('footer').addEventListener('input', function () { data.settings.footerText = byId('footer').value; });
+      byId('load').addEventListener('click', load);
+      byId('publish').addEventListener('click', publish);
+      byId('tv-count').addEventListener('input', updateEstimate);
+      byId('loads-per-day').addEventListener('input', updateEstimate);
+      render(); updateEstimate();
+    }());
+  </script>
+</body>
+</html>

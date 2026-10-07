@@ -1,0 +1,823 @@
+<!doctype html>
+<html lang="pl">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ANS Digital Signage</title>
+    <style>
+      * { box-sizing: border-box; }
+      html, body { width: 100%; height: 100%; margin: 0; overflow: hidden; }
+      body {
+        color: #fff;
+        background: #080808 url('ans-building-blurred.png') center center / cover no-repeat;
+        font-family: Arial, Helvetica, sans-serif;
+      }
+      body:before {
+        content: '';
+        position: fixed;
+        top: 0; right: 0; bottom: 0; left: 0;
+        background: rgba(0, 0, 0, 0.64);
+      }
+      .app { position: relative; width: 100%; height: 100%; padding: 2.2vh 2.5vw 1.5vh; }
+      .header {
+        height: 14vh;
+        padding: 1.4vh 1.4vw;
+        border: 1px solid rgba(214, 177, 69, 0.65);
+        background: rgba(255, 255, 255, 0.94);
+        color: #111;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+      }
+      .logo-plate { height: 100%; min-width: 28vw; display: flex; align-items: center; }
+      .logo { display: block; max-width: 29vw; max-height: 9vh; }
+      .clock { text-align: right; color: #111; }
+      .time { font-size: 4.2vw; line-height: 0.9; font-weight: bold; letter-spacing: -0.12vw; }
+      .date { margin-top: 0.9vh; color: #755f20; font-size: 1.25vw; font-weight: bold; text-transform: uppercase; }
+      .main { height: 75vh; padding-top: 2vh; }
+      .screen { display: none; width: 100%; height: 100%; }
+      .screen.active { display: block; }
+      .information { font-size: 0; }
+      .panel {
+        vertical-align: top;
+        height: 100%;
+        border: 1px solid rgba(214, 177, 69, 0.72);
+        background: rgba(7, 7, 7, 0.89);
+        box-shadow: 0 15px 45px rgba(0, 0, 0, 0.34);
+      }
+      .announcement {
+        position: relative;
+        display: inline-block;
+        width: 63.5%;
+        padding: 4vh 3.2vw;
+        overflow: hidden;
+      }
+      .announcement:after {
+        content: '';
+        position: absolute;
+        right: -7vw; bottom: -13vh;
+        width: 28vw; height: 28vw;
+        border: 1px solid rgba(214, 177, 69, 0.18);
+        border-radius: 50%;
+      }
+      .category, .media-label, .kicker {
+        color: #e3c65f;
+        font-size: 1vw;
+        font-weight: bold;
+        letter-spacing: 0.16vw;
+        text-transform: uppercase;
+      }
+      .counter { float: right; color: #c9b66d; font-size: 1vw; font-weight: bold; }
+      .gold-line { width: 8vw; height: 0.65vh; margin: 9vh 0 3vh; background: #d6b145; }
+      .announcement h1 {
+        position: relative;
+        z-index: 1;
+        max-width: 94%;
+        margin: 0;
+        font-size: 3.9vw;
+        line-height: 1.04;
+        letter-spacing: -0.08vw;
+      }
+      .announcement p {
+        position: relative;
+        z-index: 1;
+        max-width: 90%;
+        margin: 3vh 0 0;
+        color: #e8e4d8;
+        font-size: 1.55vw;
+        line-height: 1.45;
+      }
+      .dots { position: absolute; left: 3.2vw; bottom: 4vh; z-index: 2; }
+      .dot { display: inline-block; width: 1.1vw; height: 0.38vh; margin-right: 0.55vw; background: #555; }
+      .dot.active { width: 2.5vw; background: #d6b145; }
+      .media {
+        position: relative;
+        display: inline-block;
+        width: 34.5%;
+        margin-left: 2%;
+        overflow: hidden;
+      }
+      .media img { position: absolute; width: 100%; height: 100%; object-fit: cover; }
+      .media-shade {
+        position: absolute;
+        top: 0; right: 0; bottom: 0; left: 0;
+        background: linear-gradient(to bottom, rgba(0,0,0,0.12), rgba(0,0,0,0.92));
+      }
+      .media-copy { position: absolute; top: 3.4vh; right: 2vw; bottom: 4vh; left: 2vw; }
+      .media-copy h2 { position: absolute; bottom: 6vh; margin: 0; font-size: 2.25vw; line-height: 1.1; }
+      .media-copy p { position: absolute; bottom: 0; margin: 0; color: #ddd8c9; font-size: 1.05vw; line-height: 1.4; }
+      .calendar { padding: 3.2vh 2.3vw; }
+      .calendar-head { height: 10vh; border-bottom: 1px solid rgba(214,177,69,0.35); }
+      .calendar-head h1 { margin: 1vh 0 0; font-size: 2.8vw; }
+      .events { height: 55vh; padding-top: 2.5vh; font-size: 0; overflow: hidden; }
+      .event {
+        display: inline-block;
+        vertical-align: top;
+        width: 48.7%;
+        height: 16.6vh;
+        margin: 0 2.6% 1.6vh 0;
+        padding: 1.4vh 1.2vw;
+        background: rgba(255,255,255,0.075);
+        border-left: 0.35vw solid #d6b145;
+        font-size: 1vw;
+      }
+      .event:nth-child(2n) { margin-right: 0; }
+      .day-box { float: left; width: 5.4vw; text-align: center; color: #e6c85f; }
+      .day-box strong { display: block; font-size: 2.4vw; line-height: 1; }
+      .day-box span { display: block; margin-top: 0.5vh; font-size: 0.85vw; font-weight: bold; text-transform: uppercase; }
+      .event-copy { margin-left: 6.4vw; }
+      .event-copy small { color: #d6b145; font-size: 0.72vw; font-weight: bold; text-transform: uppercase; }
+      .event-copy h2 { margin: 0.55vh 0; font-size: 1.35vw; line-height: 1.1; }
+      .event-copy p { height: 3.2vh; margin: 0; overflow: hidden; color: #ccc8bc; font-size: 0.83vw; line-height: 1.25; }
+      .meta { margin-top: 0.8vh; color: #eee6cb; font-size: 0.78vw; font-weight: bold; }
+      .location { float: right; color: #e4c45e; }
+      .news-screen, .defenses-screen { padding: 2.5vh 2.1vw; }
+      .legacy-heading { height: 8vh; border-bottom: 1px solid rgba(214,177,69,0.35); }
+      .legacy-heading h1 { margin: 0.7vh 0 0; font-size: 2.5vw; line-height: 1; }
+      .news-layout { height: 58vh; padding-top: 2.2vh; font-size: 0; }
+      .news-featured { display: inline-block; width: 75%; height: 100%; vertical-align: top; font-size: 0; }
+      .news-card { display: inline-block; width: 31.6%; height: 100%; margin-right: 2.6%; vertical-align: top; font-size: 1vw; }
+      .news-card:last-child { margin-right: 0; }
+      .news-image { width: 100%; height: 32vh; border: 1px solid rgba(214,177,69,0.55); background: #171717 center center / cover no-repeat; }
+      .news-date { margin-top: 1.4vh; color: #e3c65f; font-size: 0.9vw; font-weight: bold; }
+      .news-title { margin: 0.8vh 0 0; color: #fff; font-size: 1.25vw; line-height: 1.35; }
+      .news-links { display: inline-block; width: 23%; height: 100%; margin-left: 2%; padding: 1.8vh 1.3vw; vertical-align: top; background: rgba(255,255,255,0.08); font-size: 1vw; }
+      .news-link { min-height: 11.5vh; padding: 1.2vh 0; border-bottom: 1px solid rgba(214,177,69,0.2); }
+      .news-link:last-child { border-bottom: 0; }
+      .news-link strong { display: block; color: #e3c65f; font-size: 0.83vw; }
+      .news-link span { display: block; margin-top: 0.55vh; color: #eee9dc; font-size: 1.02vw; line-height: 1.22; }
+      .news-source { float: right; margin-top: 0.5vh; color: #b8a875; font-size: 0.75vw; font-weight: bold; }
+      .defense-calendar { margin-top: 2vh; }
+      .defense-day { margin-bottom: 1.5vh; border: 1px solid rgba(214,177,69,0.35); background: rgba(0,0,0,0.35); }
+      .defense-day-title { margin: 0; padding: 1vh 1.2vw; background: #d6b145; color: #17130a; font-size: 1.25vw; text-transform: uppercase; }
+      .defense-table { width: 100%; border-collapse: collapse; font-size: 1vw; }
+      .defense-table th { padding: 0.8vh 1vw; background: rgba(214,177,69,0.16); color: #dfbd55; text-align: left; font-size: 0.72vw; letter-spacing: 0.06vw; text-transform: uppercase; }
+      .defense-table td { padding: 1.1vh 1vw; border-bottom: 1px solid rgba(214,177,69,0.18); background: rgba(255,255,255,0.045); }
+      .defense-table tr:nth-child(even) td { background: rgba(255,255,255,0.09); }
+      .defense-student { font-size: 1.1vw; font-weight: bold; }
+      .defense-time, .defense-room { color: #e6c85f; font-size: 1.05vw; font-weight: bold; }
+      .defense-supervisor { color: #e8e4d8; font-weight: bold; }
+      .all-disabled { padding-top: 25vh; text-align: center; }
+      .all-disabled h1 { margin: 0; color: #e3c65f; font-size: 2.8vw; }
+      .all-disabled p { margin-top: 1.5vh; color: #ddd8c9; font-size: 1.2vw; }
+      .footer {
+        height: 7vh;
+        padding: 1.8vh 1.2vw 0;
+        color: #eee9d9;
+        font-size: 0.9vw;
+        font-weight: bold;
+        letter-spacing: 0.05vw;
+        text-transform: uppercase;
+      }
+      .footer-right { float: right; color: #d8bd5b; }
+      .live { display: inline-block; width: 0.55vw; height: 0.55vw; margin: 0 0.5vw 0 1.5vw; background: #d6b145; border-radius: 50%; }
+      .offline { color: #ff5f57; }
+      .live.offline-live { background: #ef4444; box-shadow: 0 0 0 0.25vw rgba(239, 68, 68, 0.14); }
+      .connection-loss {
+        display: none;
+        position: fixed;
+        z-index: 100;
+        top: 0; right: 0; bottom: 0; left: 0;
+        background: rgba(0, 0, 0, 0.76);
+        text-align: center;
+      }
+      .connection-loss.visible { display: block; }
+      .connection-loss-card {
+        position: absolute;
+        top: 50%; left: 50%;
+        width: 42vw;
+        margin: -18vh 0 0 -21vw;
+        padding: 5vh 3vw;
+        border: 1px solid rgba(214, 177, 69, 0.72);
+        background: #0b0a08;
+        box-shadow: 0 2vh 7vh rgba(0, 0, 0, 0.7);
+      }
+      .connection-loss-symbol {
+        width: 4.5vw; height: 4.5vw;
+        margin: 0 auto 2vh;
+        border: 0.15vw solid #d6b145;
+        border-radius: 50%;
+        color: #e3c65f;
+        font-size: 2.8vw;
+        line-height: 4.2vw;
+        font-weight: bold;
+      }
+      .connection-loss-card small { color: #d6b145; font-size: 0.8vw; font-weight: bold; letter-spacing: 0.15vw; text-transform: uppercase; }
+      .connection-loss-card h1 { margin: 1.2vh 0 0; font-size: 3vw; }
+      .connection-loss-card p { margin: 2vh 0 0; color: #cfc7ad; font-size: 1.1vw; line-height: 1.5; }
+      .connection-loss-retry { margin-top: 2.4vh; color: #e3c65f; font-size: 0.9vw; font-weight: bold; }
+      .empty { padding-top: 21vh; text-align: center; color: #d6b145; font-size: 2.2vw; font-weight: bold; }
+      @media (max-aspect-ratio: 4/3) {
+        .announcement { width: 59%; }
+        .media { width: 39%; }
+        .event { width: 100%; height: 10vh; margin-right: 0; }
+      }
+    </style>
+  </head>
+  <body>
+    <script>
+window.ANS_STATIC_DATA = {
+  "announcements": [
+    {
+      "id": "announcement-1",
+      "title": "Dzień dobry na Wydziale Nauk Ekonomicznych",
+      "body": "Życzymy studentom spokojnej sesji, trafnych decyzji i powodzenia podczas egzaminów oraz obron prac dyplomowych.",
+      "category": "Informacja",
+      "accent": "emerald",
+      "active": true
+    },
+    {
+      "id": "announcement-2",
+      "title": "Marcin Plata test  drugi",
+      "body": "Dodatkowe konsultacje dla dyplomantów odbędą się w środę w godz. 12:00–15:00 w sali 2.14.",
+      "category": "Dla studentów",
+      "accent": "gold",
+      "active": true
+    },
+    {
+      "id": "announcement-3",
+      "title": "Forum Młodego Ekonomisty",
+      "body": "Zapraszamy na spotkanie z przedstawicielami lokalnego biznesu. Aula główna, piątek, godz. 10:00.",
+      "category": "Wydarzenie",
+      "accent": "blue",
+      "active": true
+    }
+  ],
+  "events": [
+    {
+      "id": "event-1",
+      "title": "Dzień otwarty ANS",
+      "description": "Prezentacja kierunków studiów, laboratoriów i organizacji studenckich.",
+      "location": "Kampus ANS",
+      "date": "2026-06-18",
+      "time": "10:00",
+      "category": "Uczelnia"
+    },
+    {
+      "id": "event-2",
+      "title": "Forum Młodego Ekonomisty",
+      "description": "Spotkanie studentów z przedstawicielami lokalnego biznesu.",
+      "location": "Aula główna",
+      "date": "2026-06-20",
+      "time": "11:00",
+      "category": "Nauka"
+    },
+    {
+      "id": "event-3",
+      "title": "Akademicki piknik integracyjny",
+      "description": "Muzyka, strefa sportowa i spotkanie społeczności akademickiej.",
+      "location": "Teren przy kampusie",
+      "date": "2026-06-25",
+      "time": "15:00",
+      "category": "Kultura"
+    }
+  ],
+  "mediaSlides": [
+    {
+      "id": "media-1",
+      "title": "Nowoczesny kampus ANS",
+      "description": "Przestrzeń do nauki, współpracy i rozwoju w samym sercu Nowego Sącza.",
+      "imageUrl": "ans-building.png",
+      "active": true
+    }
+  ],
+  "defenses": [],
+  "settings": {
+    "footerText": "Akademia Nauk Stosowanych w Nowym Sączu · Wydział Nauk Ekonomicznych",
+    "ansLogoUrl": "ans-mark.svg",
+    "facultyLogoUrl": "wne-mark.svg",
+    "theme": "dark",
+    "modernScreens": {
+      "information": true,
+      "events": true,
+      "news": true,
+      "defenses": false
+    },
+    "legacyScreens": {
+      "information": true,
+      "events": true,
+      "news": true,
+      "defenses": false
+    }
+  }
+};
+window.ANS_STATIC_NEWS = {
+  "featured": [
+    {
+      "title": "Gala Absolwentów i Przyjaciół Wydziału Nauk Ekonomicznych 2026",
+      "date": "06.07.2026",
+      "url": "https://www.ans-ns.edu.pl/we/wydzial/o-wydziale/aktualnosci/8242-gala-absolwentow-i-przyjaciol-wydzialu-nauk-ekonomicznych-2026",
+      "imageUrl": "wne-news-images/0f2826f85e4e4bb9.png?v=1784017204431"
+    },
+    {
+      "title": "Warsztaty Spin Camp Małopolska w Akademii Nauk Stosowanych w Nowym Sączu",
+      "date": "24.06.2026",
+      "url": "https://www.ans-ns.edu.pl/we/wydzial/o-wydziale/aktualnosci/8227-warsztaty-spin-camp-malopolska-w-akademii-nauk-stosowanych-w-nowym-saczu-2",
+      "imageUrl": "wne-news-images/0b76a7e13634e3bc.jpg?v=1784017204455"
+    },
+    {
+      "title": "Nowy Sącz i inne samorządy Subregionu Sądeckiego pod lupą pracowników Wydziału Nauk Ekonomicznych",
+      "date": "16.06.2026",
+      "url": "https://www.ans-ns.edu.pl/we/wydzial/o-wydziale/aktualnosci/8216-nowy-sacz-i-inne-samorzady-subregionu-sadeckiego-pod-lupa-pracownikow-wydzialu-nauk-ekonomicznych-2",
+      "imageUrl": "wne-news-images/d470c210412c94fe.jpg?v=1784017204455"
+    }
+  ],
+  "links": [
+    {
+      "date": "15.06.2026",
+      "title": "SPIN CAMP - zapraszamy przedsiębiorców i naukowców na warsztaty dot. innowacji i współpracy biznesu z nauką",
+      "url": "https://www.ans-ns.edu.pl/we/wydzial/o-wydziale/aktualnosci/8208-spin-camp-zapraszamy-przedsiebiorcow-i-naukowcow-na-warsztaty-dot-innowacji-i-wspolpracy-z-nauka-2"
+    },
+    {
+      "date": "10.06.2026",
+      "title": "Wykład otwarty o przyszłości doradztwa podatkowego na Wydziale Nauk Ekonomicznych ANS w Nowym Sączu",
+      "url": "https://www.ans-ns.edu.pl/we/wydzial/o-wydziale/aktualnosci/8199-wyklad-otwarty-o-przyszlosci-doradztwa-podatkowego-na-wydziale-nauk-ekonomicznych-ans-w-nowym-saczu"
+    },
+    {
+      "date": "27.05.2026",
+      "title": "Bal Absolwentów z okazji Jubileuszu 20-lecia Akademickiego Biura Karier",
+      "url": "https://www.ans-ns.edu.pl/we/wydzial/o-wydziale/aktualnosci/7964-jubileusz-20-lecia-abk"
+    },
+    {
+      "date": "26.05.2026",
+      "title": "Nauka, doświadczenie i współpraca – podsumowanie I Studenckiego Sympozjum WNE w Rytrze",
+      "url": "https://www.ans-ns.edu.pl/we/wydzial/o-wydziale/aktualnosci/8158-nauka-doswiadczenie-i-wspolpraca-podsumowanie-i-studenckiego-sympozjum-wne-w-rytrze"
+    }
+  ],
+  "sourceUrl": "https://www.ans-ns.edu.pl/we",
+  "fetchedAt": "2026-07-14T08:20:04.347Z"
+};
+</script>
+    <div class="app">
+      <div class="header">
+        <div class="logo-plate"><img class="logo" src="ans-display-logo.png" alt="ANS"></div>
+        <div class="clock"><div id="time" class="time">--:--</div><div id="date" class="date">Ładowanie daty</div></div>
+      </div>
+
+      <div class="main">
+        <div id="screen-info" class="screen information active">
+          <div class="panel announcement">
+            <span id="announcement-category" class="category">Informacja</span>
+            <span id="announcement-counter" class="counter">01 / 01</span>
+            <div class="gold-line"></div>
+            <h1 id="announcement-title">Komunikaty ANS</h1>
+            <p id="announcement-body">Dane zapisane w tej stronie.</p>
+            <div id="announcement-dots" class="dots"></div>
+          </div>
+          <div class="panel media">
+            <img id="media-image" src="ans-building.png" alt="">
+            <div class="media-shade"></div>
+            <div class="media-copy">
+              <span class="media-label">Warto zobaczyć</span>
+              <span id="media-counter" class="counter">01 / 01</span>
+              <h2 id="media-title">Akademia Nauk Stosowanych</h2>
+              <p id="media-description">Wydział Nauk Ekonomicznych</p>
+            </div>
+          </div>
+        </div>
+
+        <div id="screen-calendar" class="screen panel calendar">
+          <div class="calendar-head"><span class="kicker">Kalendarz Akademii</span><h1>Najbliższe wydarzenia ANS WNE</h1></div>
+          <div id="events" class="events"><div class="empty">Ładowanie wydarzeń...</div></div>
+        </div>
+
+        <div id="screen-news" class="screen panel news-screen">
+          <div class="legacy-heading">
+            <span class="kicker">Wydział Nauk Ekonomicznych</span>
+            <span id="news-source" class="news-source">Źródło: ans-ns.edu.pl/we</span>
+            <h1>Aktualności</h1>
+          </div>
+          <div class="news-layout">
+            <div id="news-featured" class="news-featured"><div class="empty">Ładowanie aktualności...</div></div>
+            <div id="news-links" class="news-links"></div>
+          </div>
+        </div>
+
+        <div id="screen-defenses" class="screen panel defenses-screen">
+          <div class="legacy-heading"><span class="kicker">Wydział Nauk Ekonomicznych</span><h1>Kalendarz obron</h1></div>
+          <div id="defenses"><div class="empty">Ładowanie harmonogramu...</div></div>
+        </div>
+
+        <div id="screen-empty" class="screen panel all-disabled">
+          <h1>System informacyjny ANS działa poprawnie</h1>
+          <p id="system-clock">Oczekiwanie na dane.</p>
+        </div>
+      </div>
+
+      <div class="footer">
+        <span id="footer-text">Akademia Nauk Stosowanych w Nowym Sączu</span>
+        <span class="footer-right"><span id="screen-number">EKRAN 1 / 4</span><span class="live"></span><span id="connection">INFORMACJE NA ŻYWO</span></span>
+      </div>
+    </div>
+    <div id="connection-loss" class="connection-loss">
+      <div class="connection-loss-card">
+        <div class="connection-loss-symbol">!</div>
+        <small>ANS Digital Signage</small>
+        <h1>Utracono połączenie</h1>
+        <p>Ostatnie dane pozostają na ekranie. Trwa oczekiwanie na ponowne uruchomienie serwera.</p>
+        <div class="connection-loss-retry">Sprawdzanie połączenia co 10 minut</div>
+      </div>
+    </div>
+    <script>
+      (function () {
+        var months = ['STY', 'LUT', 'MAR', 'KWI', 'MAJ', 'CZE', 'LIP', 'SIE', 'WRZ', 'PAŹ', 'LIS', 'GRU'];
+        var monthNames = ['stycznia', 'lutego', 'marca', 'kwietnia', 'maja', 'czerwca', 'lipca', 'sierpnia', 'września', 'października', 'listopada', 'grudnia'];
+        var weekdays = ['niedziela', 'poniedziałek', 'wtorek', 'środa', 'czwartek', 'piątek', 'sobota'];
+        var data = null;
+        var requestedScreenMatch = window.location.search.match(/[?&]screen=([1-4])/);
+        var screen = requestedScreenMatch ? Number(requestedScreenMatch[1]) - 1 : 0;
+        var announcementIndex = 0;
+        var mediaIndex = 0;
+        var newsData = null;
+        var connected = false;
+        var connectionAlertTimer = null;
+        var connectionAlertShown = false;
+        var lastDefenseDate = '';
+        var dataPollTimer = null;
+        var lastSignagePayload = null;
+
+        function byId(id) { return document.getElementById(id); }
+        function pad(value) { return value < 10 ? '0' + value : String(value); }
+        function setText(id, value) { byId(id).textContent = value || ''; }
+        function logError(source, error) {
+          if (window.ANS_STATIC_DATA) {
+            if (window.console && console.error) console.error(source, error);
+            return;
+          }
+          try {
+            var request = new XMLHttpRequest();
+            request.open('POST', '/api/app-log', true);
+            request.setRequestHeader('Content-Type', 'application/json');
+            request.send(JSON.stringify({
+              level: 'error',
+              source: source,
+              message: error && error.message ? error.message : String(error),
+              details: { path: window.location.pathname, userAgent: navigator.userAgent }
+            }));
+          } catch (ignore) {}
+        }
+        function setConnected(value) {
+          var wasConnected = connected;
+          connected = value;
+          setText('connection', value ? 'INFORMACJE NA ŻYWO' : 'UTRACONO POŁĄCZENIE');
+          byId('connection').className = value ? '' : 'offline';
+          document.getElementsByClassName('live')[0].className = value ? 'live' : 'live offline-live';
+          if (value) {
+            if (connectionAlertTimer) window.clearTimeout(connectionAlertTimer);
+            connectionAlertTimer = null;
+            connectionAlertShown = false;
+            byId('connection-loss').className = 'connection-loss';
+          } else if (!connectionAlertShown && (wasConnected || data)) {
+            connectionAlertShown = true;
+            byId('connection-loss').className = 'connection-loss visible';
+            if (connectionAlertTimer) window.clearTimeout(connectionAlertTimer);
+            connectionAlertTimer = window.setTimeout(function () {
+              byId('connection-loss').className = 'connection-loss';
+            }, 10000);
+          }
+        }
+        function activeItems(items) {
+          var result = [];
+          var i;
+          items = items || [];
+          for (i = 0; i < items.length && result.length < 5; i += 1) {
+            if (items[i].active) result.push(items[i]);
+          }
+          return result;
+        }
+        function updateClock() {
+          var now = new Date();
+          var day = now.getDate(), month = now.getMonth() + 1, year = now.getFullYear();
+          var hour = now.getHours(), minute = now.getMinutes();
+          try {
+            var parts = new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/Warsaw', year: 'numeric', month: 'numeric', day: 'numeric', hour: 'numeric', minute: 'numeric', hourCycle: 'h23' }).formatToParts(now);
+            var values = {}, i;
+            for (i = 0; i < parts.length; i += 1) values[parts[i].type] = Number(parts[i].value);
+            day = values.day; month = values.month; year = values.year; hour = values.hour; minute = values.minute;
+          } catch (ignoreTimeZone) {}
+          var weekday = new Date(Date.UTC(year, month - 1, day)).getUTCDay();
+          setText('time', pad(hour) + ':' + pad(minute));
+          setText('date', weekdays[weekday] + ', ' + day + ' ' + monthNames[month - 1]);
+          setText('system-clock', weekdays[weekday] + ', ' + day + ' ' + monthNames[month - 1] + ' · ' + pad(hour) + ':' + pad(minute));
+          if (lastDefenseDate !== warsawDateKey()) {
+            lastDefenseDate = warsawDateKey();
+            renderDefenses();
+          }
+        }
+        function warsawDateKey() {
+          var now = new Date();
+          try {
+            var parts = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Warsaw', year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(now);
+            var values = {}, i;
+            for (i = 0; i < parts.length; i += 1) values[parts[i].type] = parts[i].value;
+            return values.year + '-' + values.month + '-' + values.day;
+          } catch (ignore) {
+            return now.getFullYear() + '-' + pad(now.getMonth() + 1) + '-' + pad(now.getDate());
+          }
+        }
+        function renderDots(count, selected) {
+          var container = byId('announcement-dots');
+          var i, dot;
+          while (container.firstChild) container.removeChild(container.firstChild);
+          for (i = 0; i < count; i += 1) {
+            dot = document.createElement('span');
+            dot.className = i === selected ? 'dot active' : 'dot';
+            container.appendChild(dot);
+          }
+        }
+        function renderAnnouncement() {
+          var items, item;
+          if (!data) return;
+          items = activeItems(data.announcements);
+          if (!items.length) {
+            setText('announcement-category', 'Digital Signage');
+            setText('announcement-title', 'Brak aktywnych komunikatów');
+            setText('announcement-body', 'Nowe informacje można dodać w panelu administracyjnym.');
+            setText('announcement-counter', '00 / 00');
+            renderDots(0, 0);
+            return;
+          }
+          if (announcementIndex >= items.length) announcementIndex = 0;
+          item = items[announcementIndex];
+          setText('announcement-category', item.category);
+          setText('announcement-title', item.title);
+          setText('announcement-body', item.body);
+          setText('announcement-counter', pad(announcementIndex + 1) + ' / ' + pad(items.length));
+          renderDots(items.length, announcementIndex);
+        }
+        function renderMedia() {
+          var items, item, image;
+          if (!data) return;
+          items = activeItems(data.mediaSlides);
+          if (!items.length) {
+            setText('media-title', 'Miejsce na zdjęcie i informację');
+            setText('media-description', 'Dodaj materiał w panelu administracyjnym.');
+            setText('media-counter', '00 / 00');
+            byId('media-image').src = 'ans-building.png';
+            return;
+          }
+          if (mediaIndex >= items.length) mediaIndex = 0;
+          item = items[mediaIndex];
+          image = byId('media-image');
+          image.onerror = function () { this.src = 'ans-building.png'; this.onerror = null; };
+          image.src = item.imageUrl || 'ans-building.png';
+          setText('media-title', item.title);
+          setText('media-description', item.description);
+          setText('media-counter', pad(mediaIndex + 1) + ' / ' + pad(items.length));
+        }
+        function parseDate(value) {
+          var parts = String(value || '').split('-');
+          return new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]), 12, 0, 0);
+        }
+        function renderEvents() {
+          var events, container, i, event, date, card, day, copy, category, title, description, meta, location;
+          if (!data) return;
+          events = (data.events || []).slice(0);
+          events.sort(function (a, b) { return (a.date + a.time) < (b.date + b.time) ? -1 : 1; });
+          events = events.slice(0, 6);
+          container = byId('events');
+          while (container.firstChild) container.removeChild(container.firstChild);
+          if (!events.length) {
+            card = document.createElement('div');
+            card.className = 'empty';
+            card.textContent = 'Brak wydarzeń w kalendarzu';
+            container.appendChild(card);
+            return;
+          }
+          for (i = 0; i < events.length; i += 1) {
+            event = events[i];
+            date = parseDate(event.date);
+            card = document.createElement('div'); card.className = 'event';
+            day = document.createElement('div'); day.className = 'day-box';
+            day.innerHTML = '<strong>' + pad(date.getDate()) + '</strong><span>' + months[date.getMonth()] + '</span>';
+            copy = document.createElement('div'); copy.className = 'event-copy';
+            category = document.createElement('small'); category.textContent = event.category || 'Wydarzenie';
+            title = document.createElement('h2'); title.textContent = event.title || '';
+            description = document.createElement('p'); description.textContent = event.description || '';
+            meta = document.createElement('div'); meta.className = 'meta'; meta.appendChild(document.createTextNode(event.time || ''));
+            location = document.createElement('span'); location.className = 'location'; location.textContent = event.location || '';
+            meta.appendChild(location);
+            copy.appendChild(category); copy.appendChild(title); copy.appendChild(description); copy.appendChild(meta);
+            card.appendChild(day); card.appendChild(copy); container.appendChild(card);
+          }
+        }
+        function renderNews() {
+          var featuredContainer = byId('news-featured');
+          var linksContainer = byId('news-links');
+          var items = newsData && newsData.featured ? newsData.featured : [];
+          var links = newsData && newsData.links ? newsData.links : [];
+          var i, card, image, date, title, link, linkDate, linkTitle;
+          while (featuredContainer.firstChild) featuredContainer.removeChild(featuredContainer.firstChild);
+          while (linksContainer.firstChild) linksContainer.removeChild(linksContainer.firstChild);
+          if (!items.length) {
+            card = document.createElement('div');
+            card.className = 'empty';
+            card.textContent = 'Aktualności są chwilowo niedostępne';
+            featuredContainer.appendChild(card);
+          }
+          for (i = 0; i < items.length && i < 3; i += 1) {
+            card = document.createElement('div'); card.className = 'news-card';
+            image = document.createElement('div'); image.className = 'news-image';
+            image.style.backgroundImage = items[i].imageUrl ? 'url("' + items[i].imageUrl.replace(/"/g, '') + '"), url("ans-building.png")' : 'url("ans-building.png")';
+            date = document.createElement('div'); date.className = 'news-date'; date.textContent = items[i].date || '';
+            title = document.createElement('h2'); title.className = 'news-title'; title.textContent = items[i].title || '';
+            card.appendChild(image); card.appendChild(date); card.appendChild(title); featuredContainer.appendChild(card);
+          }
+          for (i = 0; i < links.length && i < 4; i += 1) {
+            link = document.createElement('div'); link.className = 'news-link';
+            linkDate = document.createElement('strong'); linkDate.textContent = links[i].date || '';
+            linkTitle = document.createElement('span'); linkTitle.textContent = links[i].title || '';
+            link.appendChild(linkDate); link.appendChild(linkTitle); linksContainer.appendChild(link);
+          }
+          if (!links.length) {
+            link = document.createElement('div'); link.className = 'news-link'; link.textContent = 'Brak dodatkowych wpisów.'; linksContainer.appendChild(link);
+          }
+          setText('news-source', 'Źródło: https://www.ans-ns.edu.pl/we');
+        }
+        function renderDefenses() {
+          var container = byId('defenses');
+          var allDefenses = data && data.defenses ? data.defenses : [];
+          var defenses = [];
+          var calendar, section, title, table, head, row, i, cell, date, currentDate;
+          var today = warsawDateKey();
+          lastDefenseDate = today;
+          for (i = 0; i < allDefenses.length; i += 1) if (allDefenses[i].date === today) defenses.push(allDefenses[i]);
+          while (container.firstChild) container.removeChild(container.firstChild);
+          if (!defenses.length) {
+            table = document.createElement('div'); table.className = 'empty'; table.textContent = 'Brak obron na dzisiaj'; container.appendChild(table); return;
+          }
+          defenses.sort(function (a, b) { return ((a.date || '') + (a.time || '')).localeCompare((b.date || '') + (b.time || '')); });
+          calendar = document.createElement('div'); calendar.className = 'defense-calendar';
+          currentDate = '';
+          for (i = 0; i < defenses.length && i < 10; i += 1) {
+            date = defenses[i].date || '';
+            if (date !== currentDate) {
+              currentDate = date;
+              section = document.createElement('div'); section.className = 'defense-day';
+              title = document.createElement('h2'); title.className = 'defense-day-title';
+              if (/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+                title.textContent = Number(date.slice(8, 10)) + ' ' + monthNames[Number(date.slice(5, 7)) - 1];
+              } else {
+                title.textContent = 'Termin obron';
+              }
+              section.appendChild(title);
+              table = document.createElement('table'); table.className = 'defense-table';
+              head = document.createElement('tr');
+              ['Godzina', 'Student', 'Kierunek', 'Sala', 'Promotor'].forEach(function (label) { cell = document.createElement('th'); cell.textContent = label; head.appendChild(cell); });
+              table.appendChild(head);
+              section.appendChild(table);
+              calendar.appendChild(section);
+            }
+            row = document.createElement('tr');
+            cell = document.createElement('td'); cell.className = 'defense-time'; cell.textContent = defenses[i].time || '—'; row.appendChild(cell);
+            cell = document.createElement('td'); cell.className = 'defense-student'; cell.textContent = defenses[i].studentName || defenses[i].program || 'Student'; row.appendChild(cell);
+            cell = document.createElement('td'); cell.textContent = defenses[i].program || defenses[i].albumNumber || '—'; row.appendChild(cell);
+            cell = document.createElement('td'); cell.className = 'defense-room'; cell.textContent = defenses[i].room || ''; row.appendChild(cell);
+            cell = document.createElement('td'); cell.className = 'defense-supervisor'; cell.textContent = defenses[i].supervisor || ''; row.appendChild(cell);
+            table.appendChild(row);
+          }
+          container.appendChild(calendar);
+        }
+        function renderAll() {
+          if (window.ANSEventPlayer) window.ANSEventPlayer.update(data && data.settings);
+          renderAnnouncement();
+          renderMedia();
+          renderEvents();
+          renderDefenses();
+          if (data && data.settings) setText('footer-text', data.settings.footerText);
+          ensureActiveScreen();
+        }
+        function enabledScreens() {
+          var settings = data && data.settings ? data.settings.legacyScreens : null;
+          var result = [];
+          if (!settings || settings.information !== false) result.push(0);
+          if (!settings || settings.events !== false) result.push(1);
+          if (!settings || settings.news !== false) result.push(2);
+          if (!settings || settings.defenses !== false) result.push(3);
+          return result;
+        }
+        function showScreen(index) {
+          screen = index;
+          byId('screen-info').className = index === 0 ? 'screen information active' : 'screen information';
+          byId('screen-calendar').className = index === 1 ? 'screen panel calendar active' : 'screen panel calendar';
+          byId('screen-news').className = index === 2 ? 'screen panel news-screen active' : 'screen panel news-screen';
+          byId('screen-defenses').className = index === 3 ? 'screen panel defenses-screen active' : 'screen panel defenses-screen';
+          byId('screen-empty').className = index === -1 ? 'screen panel all-disabled active' : 'screen panel all-disabled';
+          setText('screen-number', index === -1 ? 'EKRANY WYŁĄCZONE' : 'EKRAN ' + (index + 1) + ' / 4');
+        }
+        function ensureActiveScreen() {
+          var active = enabledScreens();
+          var i;
+          if (data && !hasDisplayData()) { showScreen(-1); return; }
+          if (!active.length) { showScreen(-1); return; }
+          for (i = 0; i < active.length; i += 1) if (active[i] === screen) { showScreen(screen); return; }
+          showScreen(active[0]);
+        }
+        function hasDisplayData() {
+          var defenses = data && data.defenses ? data.defenses : [];
+          var i;
+          if (activeItems(data && data.announcements).length || activeItems(data && data.mediaSlides).length) return true;
+          if (data && data.events && data.events.length) return true;
+          if (newsData && newsData.featured && newsData.featured.length) return true;
+          for (i = 0; i < defenses.length; i += 1) if (defenses[i].date === warsawDateKey()) return true;
+          return false;
+        }
+        function nextScreen() {
+          var active = enabledScreens();
+          var position = -1;
+          var i;
+          if (!active.length) { showScreen(-1); return; }
+          for (i = 0; i < active.length; i += 1) if (active[i] === screen) position = i;
+          showScreen(active[(position + 1) % active.length]);
+        }
+        function loadData() {
+          if (window.ANS_STATIC_DATA) {
+            data = window.ANS_STATIC_DATA;
+            renderAll();
+            setText('connection', 'DANE Z GITHUB PAGES');
+            return;
+          }
+          var request = new XMLHttpRequest();
+          request.open('GET', '/api/signage?t=' + new Date().getTime(), true);
+          request.onreadystatechange = function () {
+            if (request.readyState !== 4) return;
+            if (request.status >= 200 && request.status < 300) {
+              try {
+                if (request.responseText !== lastSignagePayload) {
+                  data = JSON.parse(request.responseText);
+                  lastSignagePayload = request.responseText;
+                  try { window.localStorage.setItem('ans-legacy-signage-cache-v1', request.responseText); } catch (ignoreCache) {}
+                  renderAll();
+                }
+                setConnected(true);
+                scheduleDataPoll(600000);
+              } catch (ignore) {
+                setText('connection', 'BŁĄD DANYCH');
+                byId('connection').className = 'offline';
+                scheduleDataPoll(3000);
+              }
+            } else {
+              setConnected(false);
+              scheduleDataPoll(3000);
+            }
+          };
+          request.onerror = function () { setConnected(false); scheduleDataPoll(3000); };
+          request.timeout = 10000;
+          request.ontimeout = function () { setConnected(false); scheduleDataPoll(3000); };
+          request.send(null);
+        }
+        function scheduleDataPoll(delay) {
+          if (dataPollTimer) window.clearTimeout(dataPollTimer);
+          dataPollTimer = window.setTimeout(loadData, delay);
+        }
+        function loadNews() {
+          if (window.ANS_STATIC_NEWS) {
+            newsData = window.ANS_STATIC_NEWS;
+            renderNews();
+            ensureActiveScreen();
+            return;
+          }
+          var request = new XMLHttpRequest();
+          request.open('GET', '/api/wne-news?force=1&t=' + new Date().getTime(), true);
+          request.onreadystatechange = function () {
+            if (request.readyState !== 4) return;
+            if (request.status >= 200 && request.status < 300) {
+              try {
+                newsData = JSON.parse(request.responseText);
+                try { window.localStorage.setItem('ans-legacy-news-cache-v1', request.responseText); } catch (ignoreCache) {}
+                renderNews();
+                ensureActiveScreen();
+              } catch (ignore) { logError('legacy-news-json', ignore); renderNews(); }
+            } else { renderNews(); }
+          };
+          request.send(null);
+        }
+
+        try {
+          lastSignagePayload = window.localStorage.getItem('ans-legacy-signage-cache-v1');
+          data = JSON.parse(lastSignagePayload || 'null');
+          newsData = JSON.parse(window.localStorage.getItem('ans-legacy-news-cache-v1') || 'null');
+          if (data) renderAll();
+          if (newsData) renderNews();
+        } catch (cacheError) {
+          logError('legacy-cache', cacheError);
+        }
+        window.onerror = function (message, source, line, column, error) {
+          logError('legacy-window-error', error || message);
+          return true;
+        };
+        window.onunhandledrejection = function (event) {
+          logError('legacy-unhandled-rejection', event.reason);
+        };
+        updateClock();
+        loadData();
+        loadNews();
+        window.setInterval(updateClock, 1000);
+        window.setInterval(nextScreen, 50000);
+        window.setInterval(function () { announcementIndex += 1; mediaIndex += 1; renderAnnouncement(); renderMedia(); }, 10000);
+        if (!window.ANS_STATIC_NEWS) window.setInterval(loadNews, 1800000);
+      }());
+    </script>
+    <script src="tv-transfer-meter.js"></script>
+  </body>
+</html>
